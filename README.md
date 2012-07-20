@@ -1,19 +1,18 @@
-Firmware - GitHub mirror of the official SVN multiwii project
+Firmware - GitHub mirror of the official SVN MultiWii
 ===
 
-### Introduction:
+Introduction
+---
 
 The official development of [MultiWii](http://www.multiwii.com/) is stored in a [SVN](http://code.google.com/p/multiwii/source/browse/).
 
-But we are more and more developer who want to use GitHub to develop multiwii that's why we created multiwii organization.
+But we are more and more developers who want to use GitHub to code that's why we created the GitHub [https://github.com/multiwii](multiwii) organization.
 
-The goal of this organization is to federate and centralize the community effort.
+The goal of this organization is to federate and centralize the GitHub community effort behind multiwii.
 
 This project is a mirror of the svn that is syncronized automatically. So you'll see every SVN commit with the commit author and comment.
 
-It contains the firmware part of the multiwii project.
-
-Feel free to fork this project to add your own modification.
+It contains the *firmware* part of the MultiWii project.
 
 Resources for Newcomers
 ---
