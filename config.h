@@ -50,6 +50,7 @@
     //#define MINTHROTTLE 1300 // for Turnigy Plush ESCs 10A
     //#define MINTHROTTLE 1120 // for Super Simple ESCs 10A
     //#define MINTHROTTLE 1064 // special ESC (simonk)
+    //#define MINTHROTTLE 1050 // for brushed ESCs like ladybird
     #define MINTHROTTLE 1150
 
   /****************************    Motor maxthrottle    *******************************/
@@ -122,6 +123,10 @@
       //#define Bobs_10DOF_BMP_V1 // BobsQuads 10DOF V1 with ITG3200, BMA180, HMC5883L & BMP180 - BMP180 is software compatible with BMP085
       //#define FLYDUINO_MPU
       //#define CRIUS_AIO_PRO_V1
+      //#define DESQUARED6DOFV2GO  // DEsquared V2 with ITG3200 only
+      //#define DESQUARED6DOFV4    // DEsquared V4 with MPU6050
+      //#define LADYBIRD
+      
       
     /***************************    independent sensors    ********************************/
       /* leave it commented if you already checked a specific board above */
@@ -303,6 +308,9 @@
       //#define SERIAL_SUM_PPM         ROLL,PITCH,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4 //For Robe/Hitec/Futaba
       //#define SERIAL_SUM_PPM         PITCH,ROLL,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4 //For some Hitec/Sanwa/Others
 
+      // Uncommenting following line allow to connect PPM_SUM receiver to standard THROTTLE PIN on MEGA boards (eg. A8 in CRIUS AIO)
+      //#define PPM_ON_THROTTLE
+
     /**********************    Spektrum Satellite Reciver    *******************************/
       /* The following lines apply only for Spektrum Satellite Receiver
          Spektrum Satellites are 3V devices.  DO NOT connect to 5V!
@@ -310,6 +318,7 @@
          For PROMINI, attach sat grey to RX0.  Attach sat black to ground. */
       //#define SPEKTRUM 1024
       //#define SPEKTRUM 2048
+      //#define SPEK_SERIAL_PORT 1    // Forced to 0 on Pro Mini and single serial boards; Set to your choice of 0, 1, or 2 on any Mega based board (defaults to 1 on Mega).
 
     /*******************************    SBUS RECIVER    ************************************/
       /* The following line apply only for Futaba S-Bus Receiver on MEGA boards at RX1 only (Serial 1).
@@ -402,6 +411,9 @@
     /* This is the speed of the serial interface */
     #define SERIAL_COM_SPEED 115200
 
+    /* For connecting MISIO-OSD or BLUETOOTH module to SERIAL3 on MEGA boards - SERIAL3 clone functionality of SERIAL0 */
+    #define OSD_ON_UART3 
+
     /* interleaving delay in micro seconds between 2 readings WMP/NK in a WMP+NK config
        if the ACC calibration time is very long (20 or 30s), try to increase this delay up to 4000
        it is relevent only for a conf with NK */
@@ -467,6 +479,13 @@
   /* Pseudo-derivative conrtroller for level mode (experimental)
      Additional information: http://www.multiwii.com/forum/viewtopic.php?f=8&t=503 */
     //#define LEVEL_PDF
+	
+	
+  /************************   Assisted AcroTrainer    **********************************/
+    /* Train Acro with auto recovery. Value set the point where ANGLE_MODE takes over.
+       Remember to activate ANGLE_MODE first!...
+       A Value on 200 will give a very distinct transfer */
+     //#define ACROTRAINER_MODE 200   // http://www.multiwii.com/forum/viewtopic.php?f=16&t=1944#p17437
 
 
   /********                          Failsave settings                 ********************/
@@ -477,7 +496,8 @@
        Next, afrer FAILSAVE_OFF_DELAY the copter is disarmed, and motors is stopped.
        If RC pulse coming back before reached FAILSAVE_OFF_DELAY time, after the small quard time the RC control is returned to normal.
        If you use serial sum PPM, the sum converter must completly turn off the PPM SUM pusles for this FailSafe functionality.*/
-    //#define FAILSAFE                                  // uncomment  to activate the failsafe function
+    //#define FAILSAFE                                // uncomment  to activate the failsafe function
+    #define FAILSAFE_PIN       THROTTLEPIN            // Failsave Pin on Standard RX. Possible options: THROTTLEPIN, ROLLPIN, PITCHPIN, YAWPIN
     #define FAILSAVE_DELAY     10                     // Guard time for failsafe activation after signal lost. 1 step = 0.1sec - 1sec in example
     #define FAILSAVE_OFF_DELAY 200                    // Time for Landing before motors stop in 0.1sec. 1 step = 0.1sec - 20sec in example
     #define FAILSAVE_THROTTLE  (MINTHROTTLE + 200)    // Throttle level used for landing - may be relative to MINTHROTTLE - as in this case
@@ -492,11 +512,9 @@
     //#define LED_FLASHER_DDR DDRB
     //#define LED_FLASHER_PORT PORTB
     //#define LED_FLASHER_BIT PORTB4
-    //#define LED_FLASHER_SEQUENCE ( (uint8_t) 0 )
-    // create double flashes
-    //#define LED_FLASHER_SEQUENCE_ARMED ( (uint8_t) (1<<0 | 1<<2) )
-    // full illumination
-    //#define LED_FLASHER_SEQUENCE_MAX 0xFF
+    //#define LED_FLASHER_SEQUENCE        0b00000000      // leds OFF
+    //#define LED_FLASHER_SEQUENCE_ARMED  0b00000101      // create double flashes
+    //#define LED_FLASHER_SEQUENCE_MAX    0b11111111      // full illumination
 
 
   /*******************************    Landing lights    *********************************/
@@ -546,8 +564,20 @@
        the GPS must be configured to output GGA and RMC NMEA sentences (which is generally the default conf for most GPS devices)
        at least 5Hz update rate. uncomment the first line to select the GPS serial port of the arduino */
     //#define GPS_SERIAL 2 // should be 2 for flyduino v2. It's the serial port number on arduino MEGA
-    #define GPS_BAUD   115200
+    #define GPS_BAUD   57600
+    //#define GPS_BAUD   115200
+
+
+    /* GPS protocol 
+       NMEA  - Standard NMEA protocol GGA, GSA and RMC  sentences are needed
+       UBLOX - U-Blox binary protocol, use the ublox config file (u-blox-config.ublox.txt) from the source tree 
+       With UBLOX you don't have to use GPS_FILTERING in multiwii code !!! */
     
+    //#define NMEA
+    //#define UBLOX
+
+    //#define INIT_MTK_GPS        // initialize MTK GPS for using selected speed, 5Hz update rate and GGA & RMC sentence 
+
     //#define GPS_PROMINI_SERIAL    57600 // Will Autosense if GPS is connected when ardu boots
    
     /* I2C GPS device made with an independant arduino + GPS device
@@ -563,11 +593,14 @@
     /* get sonar data from Tiny-GPS */
     //#define TINY_GPS_SONAR
 
-    /* indicate a valid GPS fix with at least 5 satellites by flashing the LED? */
-    #define GPS_LED_INDICATOR
-
-    /* GPS data readed from OSD -- still need some more code to work */
+    /* GPS data readed from Misio-OSD - GPS module connected to OSD, and MultiWii read GPS data from OSD - tested and working OK ! */
     //#define GPS_FROM_OSD
+
+    /* indicate a valid GPS fix with at least 5 satellites by flashing the LED  - Modified by MIS - Using stable LED (YELLOW on CRIUS AIO) led work as sat number indicator 
+      - No GPS FIX -> LED blink at speed of incoming GPS frames
+      - Fix and sat no. bellow 5 -> LED off
+      - Fix and sat no. >= 5 -> LED blinks, one blink for 5 sat, two blinks for 6 sat, three for 7 ... */
+    #define GPS_LED_INDICATOR
 
     //#define USE_MSP_WP           		//Enables the MSP_WP command, which is used by WinGUI to display and log Home and Poshold positions
 						//Uncomment it if you are planning to use WinGUI - Will cost +208 bytes of Flash
@@ -609,6 +642,7 @@
 
     /*****************************   The type of LCD     **********************************/
       /* choice of LCD attached for configuration and telemetry, see notes below */
+      //#define LCD_DUMMY       // No Physical LCD attached.  With this & LCD_CONF defined, TX sticks still work to set gains, by watching LED blink.  
       //#define LCD_SERIAL3W    // Alex' initial variant with 3 wires, using rx-pin for transmission @9600 baud fixed
       //#define LCD_TEXTSTAR    // SERIAL LCD: Cat's Whisker LCD_TEXTSTAR Module CW-LCD-02 (Which has 4 input keys for selecting menus)
       //#define LCD_VT100       // SERIAL LCD: vt100 compatible terminal emulation (blueterm, putty, etc.)
@@ -859,6 +893,9 @@
     /* Use this to trigger telemetry without a TX - only for debugging - do NOT fly with this activated */
     //#define LCD_TELEMETRY_DEBUG    //This form rolls between all screens, LCD_TELEMETRY_AUTO must also be defined.
     //#define LCD_TELEMETRY_DEBUG 6  //This form stays on the screen specified.
+
+    /* Enable string transmissions from copter to GUI */
+    //#define DEBUGMSG
 
 
   /********************************************************************/
