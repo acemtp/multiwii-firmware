@@ -17,19 +17,19 @@
   void alarmHandler(){
     
     #if defined(VBAT)
-      if ( ( (vbat>VBATLEVEL1_3S) 
+      if ( ( (vbat>conf.vbatlevel1_3s)
       #if defined(POWERMETER)
                            && ( (pMeter[PMOTOR_SUM] < pAlarm) || (pAlarm == 0) )
       #endif
-                         )  || (NO_VBAT>vbat)                              ) // ToLuSe
+                         )  || (conf.no_vbat > vbat)                              ) // ToLuSe
       {                                          // VBAT ok AND powermeter ok, alarm off
         warn_vbat = 0;
       #if defined(POWERMETER)
       } else if (pMeter[PMOTOR_SUM] > pAlarm) {                             // sound alarm for powermeter
         warn_vbat = 4;
       #endif
-      } else if (vbat>VBATLEVEL2_3S) warn_vbat = 1;
-      else if (vbat>VBATLEVEL3_3S)   warn_vbat = 2;
+      } else if (vbat > conf.vbatlevel2_3s) warn_vbat = 1;
+      else if (vbat > conf.vbatlevel3_3s)   warn_vbat = 2;
       else                           warn_vbat = 4;
     #endif
  
@@ -87,9 +87,9 @@
     else if (warn_noGPSfix == 1) beep_code('S','S','N','S');    
     else if (beeperOnBox == 1)   beep_code('S','S','S','S');                 //beeperon
     else if (warn_runtime == 1 && f.ARMED == 1)beep_code('S','S','S','N'); //Runtime warning      
-    else if (warn_vbat == 4)     beep_code('S','S','L','D');       
-    else if (warn_vbat == 2)     beep_code('S','L','N','D');       
-    else if (warn_vbat == 1)     beep_code('L','N','N','D'); 
+    else if (warn_vbat == 4)     beep_code('M','S','M','S'); // beep_code('S','S','L','D');
+    else if (warn_vbat == 2)     beep_code('M','N','M','D'); // beep_code('S','L','N','D');
+    else if (warn_vbat == 1)     beep_code('M','N','N','D'); // beep_code('L','N','N','D');
     else if (beep_confirmation == 1) beep_code('L','N','N','L');    
     else if (beep_confirmation == 2) beep_code('L','L','N','L');   
     else if (beep_confirmation == 3) beep_code('L','L','L','L');
@@ -184,7 +184,7 @@ void blinkLED(uint8_t num, uint8_t ontime,uint8_t repeat) {
 /****                         Global Handling                    ****/
 /********************************************************************/
 
-  int useResource(char resource, uint16_t pulse, uint16_t pause){ 
+  void useResource(char resource, uint16_t pulse, uint16_t pause){
     static uint8_t channel = 0; 
     channel = ResourceToChannel(resource);
     if (!channelIsOn[channel] && (millis() >= (channelLastToggleTime[channel] + pause))&& pulse != 0) {	         
@@ -202,7 +202,7 @@ void blinkLED(uint8_t num, uint8_t ontime,uint8_t repeat) {
   int ResourceToChannel(uint8_t resource){
     uint8_t channel =0;
     switch(resource) {
-      case 'L': 
+      case 'L':
         channel = 0;
         break;
       case 'S': 
@@ -226,14 +226,11 @@ void blinkLED(uint8_t num, uint8_t ontime,uint8_t repeat) {
   
   void ChannelToOutput(uint8_t channel, uint8_t activate){
      switch(channel) {
-        case 0: 
-          if (activate == 1) {LEDPIN_ON;}
-          else {LEDPIN_OFF;}
-          break; 
         case 1:
           if (activate == 1) {BUZZERPIN_ON;}
           else {BUZZERPIN_OFF;}
           break; 
+        case 0:
         default:
           if (activate == 1){LEDPIN_ON;}
           else {LEDPIN_OFF;}
@@ -298,7 +295,7 @@ void blinkLED(uint8_t num, uint8_t ontime,uint8_t repeat) {
       i2c_stop();
     }
   #if defined (VBAT)
-    if (vbat<VBATLEVEL1_3S){ // Uh oh - battery low
+    if (vbat < conf.vbatlevel1_3s){ // Uh oh - battery low
       i2c_rep_start(LED_RING_ADDRESS);
       i2c_write('r');
       i2c_stop();   

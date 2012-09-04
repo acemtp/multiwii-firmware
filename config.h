@@ -10,7 +10,7 @@
  * 3 - RC SYSTEM SETUP
  * 4 - ALTERNATE CPUs & BOARDS - if you have
  * 5 - ALTERNATE SETUP - select alternate RX (SBUS, PPM, etc.), alternate ESC-range, etc. here
- * 6 - OPTIONAL FEATURES - enable nice to have features here (LCD, telemetry, battery monitor etc.)
+ * 6 - OPTIONAL FEATURES - enable nice to have features here (FlightModes, LCD, telemetry, battery monitor etc.)
  * 7 - TUNING & DEVELOPER - if you know what you are doing; you have been warned
  */
 
@@ -55,12 +55,12 @@
 
   /****************************    Motor maxthrottle    *******************************/
     /* this is the maximum value for the ESCs at full power, this value can be increased up to 2000 */
-      #define MAXTHROTTLE 1850
+    #define MAXTHROTTLE 1850
 
   /****************************    Mincommand          *******************************/
     /* this is the value for the ESCs when they are not armed
        in some cases, this value must be lowered down to 900 for some specific ESCs, otherwise they failed to initiate */
-      #define MINCOMMAND  1000
+    #define MINCOMMAND  1000
 
   /**********************************    I2C speed   ************************************/
     #define I2C_SPEED 100000L     //100kHz normal mode, this value must be used for a genuine WMP
@@ -399,7 +399,22 @@
       //#define PROMICRO10
 
 
+  /**************************************************************************************/
+  /********                      override default pin assignments    ********************/
+  /**************************************************************************************/
 
+  /* only enable any of this if you must change the default pin assignment, e.g. your board does not have a specific pin */
+  /* you may need to change PINx and PORTx plus shift # according to the desired pin! */
+  //#define V_BATPIN                   A0 // instead of A3    // Analog PIN 3
+
+  //#define LEDPIN_PINMODE             pinMode (A1, OUTPUT); // use A1 instead of d13
+  //#define LEDPIN_TOGGLE              PINC |= 1<<1; // PINB |= 1<<5;     //switch LEDPIN state (digital PIN 13)
+  //#define LEDPIN_OFF                 PORTC &= ~(1<<1); // PORTB &= ~(1<<5);
+  //#define LEDPIN_ON                  PORTC |= 1<<1;    // was PORTB |= (1<<5);
+
+  //#define BUZZERPIN_PINMODE          pinMode (A2, OUTPUT); // use A2 instead of d8
+  //#define BUZZERPIN_ON               PORTC |= 1<<2 //PORTB |= 1;
+  //#define BUZZERPIN_OFF              PORTC &= ~(1<<2); //PORTB &= ~1;
 
 /*************************************************************************************************/
 /*****************                                                                 ***************/
@@ -408,11 +423,11 @@
 /*************************************************************************************************/
 
   /******                Serial com speed    *********************************/
-    /* This is the speed of the serial interface */
-    #define SERIAL_COM_SPEED 115200
-
-    /* For connecting MISIO-OSD or BLUETOOTH module to SERIAL3 on MEGA boards - SERIAL3 clone functionality of SERIAL0 */
-    #define OSD_ON_UART3 
+    /* This is the speed of the serial interfaces */
+    #define SERIAL0_COM_SPEED 115200
+    #define SERIAL1_COM_SPEED 115200
+    #define SERIAL2_COM_SPEED 115200
+    #define SERIAL3_COM_SPEED 115200
 
     /* interleaving delay in micro seconds between 2 readings WMP/NK in a WMP+NK config
        if the ACC calibration time is very long (20 or 30s), try to increase this delay up to 4000
@@ -481,15 +496,19 @@
     //#define LEVEL_PDF
 	
 	
+  /************************        AP FlightMode        **********************************/
+    /* Temporarily Disables GPS_HOLD_MODE to be able to make it possible to adjust the Hold-position when moving the sticks.*/
+    //#define AP_MODE 10  // Create a deadspan for GPS.
+        
   /************************   Assisted AcroTrainer    **********************************/
     /* Train Acro with auto recovery. Value set the point where ANGLE_MODE takes over.
        Remember to activate ANGLE_MODE first!...
        A Value on 200 will give a very distinct transfer */
-     //#define ACROTRAINER_MODE 200   // http://www.multiwii.com/forum/viewtopic.php?f=16&t=1944#p17437
+    //#define ACROTRAINER_MODE 200   // http://www.multiwii.com/forum/viewtopic.php?f=16&t=1944#p17437
 
 
   /********                          Failsave settings                 ********************/
-    /* Failsafe check pulse on THROTTLE channel. If the pulse is OFF (on only THROTTLE or on all channels) the failsafe procedure is initiated.
+    /* Failsafe check pulse on ROLL channel. If the pulse is OFF (on only ROLL or on all channels) the failsafe procedure is initiated.
        After FAILSAVE_DELAY time of pulse absence, the level mode is on (if ACC or nunchuk is avaliable), PITCH, ROLL and YAW is centered
        and THROTTLE is set to FAILSAVE_THR0TTLE value. You must set this value to descending about 1m/s or so for best results.
        This value is depended from your configuration, AUW and some other params.
@@ -497,7 +516,6 @@
        If RC pulse coming back before reached FAILSAVE_OFF_DELAY time, after the small quard time the RC control is returned to normal.
        If you use serial sum PPM, the sum converter must completly turn off the PPM SUM pusles for this FailSafe functionality.*/
     //#define FAILSAFE                                // uncomment  to activate the failsafe function
-    #define FAILSAFE_PIN       THROTTLEPIN            // Failsave Pin on Standard RX. Possible options: THROTTLEPIN, ROLLPIN, PITCHPIN, YAWPIN
     #define FAILSAVE_DELAY     10                     // Guard time for failsafe activation after signal lost. 1 step = 0.1sec - 1sec in example
     #define FAILSAVE_OFF_DELAY 200                    // Time for Landing before motors stop in 0.1sec. 1 step = 0.1sec - 20sec in example
     #define FAILSAVE_THROTTLE  (MINTHROTTLE + 200)    // Throttle level used for landing - may be relative to MINTHROTTLE - as in this case
@@ -564,8 +582,8 @@
        the GPS must be configured to output GGA and RMC NMEA sentences (which is generally the default conf for most GPS devices)
        at least 5Hz update rate. uncomment the first line to select the GPS serial port of the arduino */
     //#define GPS_SERIAL 2 // should be 2 for flyduino v2. It's the serial port number on arduino MEGA
-    #define GPS_BAUD   57600
-    //#define GPS_BAUD   115200
+    //#define GPS_BAUD   57600
+    #define GPS_BAUD   115200
 
 
     /* GPS protocol 
@@ -712,8 +730,9 @@
 
     /* same as above, but manual stepping sequence; requires 
        stick input (throttle=low & roll=right & pitch=forward) to 
-       step through each defined telemetry page */
-    //#define LCD_TELEMETRY_STEP "0123456789" // must begin with 0
+       step through each defined telemetry page
+       First page of the sequence gets loaded at startup to allow non-interactive display */
+    //#define LCD_TELEMETRY_STEP "0123456789" // should contain a 0 to allow switching off. First page of sequence gets loaded upon startup
 
 
     /* on telemetry page B (2) it gives a bar graph which shows how much voltage battery has left. Range from 0 to 12 Volt is not very informative
@@ -805,7 +824,18 @@
     #define PSENSORNULL 510 // for I=0A my sensor gives 1/2 Vss; that is approx 2.49Volt
     #define PINT2mA 13 // for telemtry display: one integer step on arduino analog translates to mA (example 4.9 / 37 * 100
 
+  /********************************************************************/
+  /****           altitude hold                                    ****/
+  /********************************************************************/
 
+    /* uncomment to disable the altitude hold feature.
+     * This is useful if all of the following apply
+     * + you have a baro
+     * + want altitude readout
+     * + do not use altitude hold feature
+     * + want to save memory space
+     */
+    //#define SUPPRESS_BARO_ALTHOLD
 
 
 /*************************************************************************************************/
@@ -842,11 +872,15 @@
     //#define SERVO_RFR_300HZ
     
   /***********************             HW PWM Servos             ***********************/ 
-    /* HW PWM Gimbal for Arduino Mega.. moves:
-      Pitch = pin 44
-      Roll  = pin 45
-      this reduces the PWM resolution for all other servos to 8 bit */
-    //#define MEGA_HW_GIMBAL
+    /* HW PWM Servo outputs for Arduino Mega.. moves:
+      Pitch   = pin 44
+      Roll    = pin 45
+      CamTrig = pin 46
+      SERVO4  = pin 11 (assigned to PPM or SPECTRUM CH9 on copter configuration)
+      SERVO5  = pin 12 (assigned to PPM or SPECTRUM CH10 on copter configuration)
+      this option disable other software PWM's for servos - only five hardware controlled servos avaliable
+      */ 
+    //#define MEGA_HW_PWM_SERVOS
 
   /********************************************************************/
   /****           IMU complimentary filter tuning                  ****/

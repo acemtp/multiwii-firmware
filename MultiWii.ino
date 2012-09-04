@@ -13,8 +13,9 @@ July  2012     V2.1
 #include "config.h"
 #include "def.h"
 
+
 #include <avr/pgmspace.h>
-#define  VERSION  210
+#define  VERSION  211
 
 /*********** RC alias *****************/
 enum rc {
@@ -47,7 +48,7 @@ enum box {
     BOXANGLE,
     BOXHORIZON,
   #endif
-  #if BARO
+  #if BARO && (!defined(SUPPRESS_BARO_ALTHOLD))
     BOXBARO,
   #endif
   #if MAG
@@ -88,7 +89,7 @@ const char boxnames[] PROGMEM = // names for dynamic generation of config GUI
     "ANGLE;"
     "HORIZON;"
   #endif
-  #if BARO
+  #if BARO && (!defined(SUPPRESS_BARO_ALTHOLD))
     "BARO;"
   #endif
   #if MAG
@@ -228,6 +229,11 @@ static uint16_t intPowerMeterSum, intPowerTrigger1;
   static uint8_t telemetry = 0;
   static uint8_t telemetry_auto = 0;
 #endif
+#ifdef LCD_TELEMETRY_STEP
+  static char telemetryStepSequence []  = LCD_TELEMETRY_STEP;
+  static uint8_t telemetryStepIndex = 0;
+#endif
+
 // ******************
 // rc functions
 // ******************
@@ -241,7 +247,11 @@ static int16_t rcData[8];          // interval [1000;2000]
 static int16_t rcCommand[4];       // interval [1000;2000] for THROTTLE and [-500;+500] for ROLL/PITCH/YAW 
 static int16_t lookupPitchRollRC[6];// lookup table for expo & RC rate PITCH+ROLL
 static int16_t lookupThrottleRC[11];// lookup table for expo & mid THROTTLE
-volatile uint8_t rcFrameComplete; // for serial rc receiver Spektrum
+
+#if defined(SPEKTRUM)
+  volatile uint8_t  spekFrameFlags;
+  volatile uint32_t spekTimeLast;
+#endif
 
 #if defined(OPENLRSv2MULTI)
   static uint8_t pot_P,pot_I; // OpenLRS onboard potentiometers for P and I trim or other usages
@@ -294,6 +304,22 @@ static struct {
   #endif
   #if defined(GYRO_SMOOTHING)
     uint8_t Smoothing[3];
+  #endif
+  #if defined (FAILSAFE)
+    int16_t failsave_throttle;
+  #endif
+  #ifdef VBAT
+    uint8_t vbatscale;
+    uint8_t vbatlevel1_3s;
+    uint8_t vbatlevel2_3s;
+    uint8_t vbatlevel3_3s;
+    uint8_t no_vbat;
+  #endif
+  #ifdef POWERMETER
+    uint16_t psensornull;
+    uint16_t pleveldivsoft;
+    uint16_t pleveldiv;
+    uint8_t pint2ma;
   #endif
 } conf;
 
@@ -348,7 +374,8 @@ static struct {
   #if defined(BUZZER)  
     static uint8_t beep_toggle = 0,
                    beep_confirmation = 0;
-   #endif
+  #endif
+
 
 void annexCode() { // this code is excetuted at each loop and won't interfere with control loop if it lasts less than 650 microseconds
   static uint32_t calibratedAccTime;
@@ -405,7 +432,7 @@ void annexCode() { // this code is excetuted at each loop and won't interfere wi
     static uint16_t psensorTimer = 0;
     if (! (++psensorTimer % PSENSORFREQ)) {
       pMeterRaw =  analogRead(PSENSORPIN);
-      powerValue = ( PSENSORNULL > pMeterRaw ? PSENSORNULL - pMeterRaw : pMeterRaw - PSENSORNULL); // do not use abs(), it would induce implicit cast to uint and overrun
+      powerValue = ( conf.psensornull > pMeterRaw ? conf.psensornull - pMeterRaw : pMeterRaw - conf.psensornull); // do not use abs(), it would induce implicit cast to uint and overrun
       if ( powerValue < 333) {  // only accept reasonable values. 333 is empirical
       #ifdef LCD_TELEMETRY
         if (powerValue > powerMax) powerMax = powerValue;
@@ -425,7 +452,7 @@ void annexCode() { // this code is excetuted at each loop and won't interfere wi
       if (! (++vbatTimer % VBATFREQ)) {
       	vbatRawArray[(ind++)%8] = analogRead(V_BATPIN);
       	for (uint8_t i=0;i<8;i++) vbatRaw += vbatRawArray[i];
-      	vbat = vbatRaw / (VBATSCALE/2);                  // result is Vbatt in 0.1V steps
+      	vbat = vbatRaw / (conf.vbatscale/2);                  // result is Vbatt in 0.1V steps
       }
     #endif
     alarmHandler(); // external buzzer routine that handles buzzer events globally now
@@ -455,7 +482,7 @@ void annexCode() { // this code is excetuted at each loop and won't interfere wi
       // the multi uses ACC and is not calibrated or is too much inclinated
       f.ACC_CALIBRATED = 0;
       LEDPIN_TOGGLE;
-      calibratedAccTime = currentTime + 500000;
+      calibratedAccTime = currentTime + 100000;
     } else {
       f.ACC_CALIBRATED = 1;
     }
@@ -470,7 +497,7 @@ void annexCode() { // this code is excetuted at each loop and won't interfere wi
   #endif
 
   #if defined(POWERMETER)
-    intPowerMeterSum = (pMeter[PMOTOR_SUM]/PLEVELDIV);
+    intPowerMeterSum = (pMeter[PMOTOR_SUM]/conf.pleveldiv);
     intPowerTrigger1 = conf.powerTrigger1 * PLEVELSCALE; 
   #endif
 
@@ -529,9 +556,14 @@ void annexCode() { // this code is excetuted at each loop and won't interfere wi
 
 void setup() {
   #if !defined(GPS_PROMINI)
-    SerialOpen(0,SERIAL_COM_SPEED);
-    #if defined(MEGA) && defined(OSD_ON_UART3)
-      SerialOpen(3,SERIAL_COM_SPEED);
+    SerialOpen(0,SERIAL0_COM_SPEED);
+    #if defined(PROMICRO)
+      SerialOpen(1,SERIAL1_COM_SPEED);
+    #endif
+    #if defined(MEGA)
+      SerialOpen(1,SERIAL1_COM_SPEED);
+      SerialOpen(2,SERIAL2_COM_SPEED);
+      SerialOpen(3,SERIAL3_COM_SPEED);
     #endif
   #endif
   LEDPIN_PINMODE;
@@ -564,7 +596,7 @@ void setup() {
   #endif
   /************************************/
   #if defined(GPS_SERIAL)
-    GPS_SerialInit(); 
+    GPS_SerialInit();
     for(uint8_t i=0;i<=5;i++){
       GPS_NewData(); 
       LEDPIN_ON
@@ -574,7 +606,7 @@ void setup() {
     }
     if(!GPS_Present){
       SerialEnd(GPS_SERIAL);
-      SerialOpen(0,SERIAL_COM_SPEED);
+      SerialOpen(0,SERIAL0_COM_SPEED);
     }
     #if !defined(GPS_PROMINI)
       GPS_Present = 1;
@@ -587,7 +619,7 @@ void setup() {
    GPS_Enable = 1;
   #endif
   
-  #if defined(LCD_ETPP) || defined(LCD_LCD03) || defined(OLED_I2C_128x64)
+  #if defined(LCD_ETPP) || defined(LCD_LCD03) || defined(OLED_I2C_128x64) || defined(LCD_TELEMETRY_STEP)
     initLCD();
   #endif
   #ifdef LCD_TELEMETRY_DEBUG
@@ -622,14 +654,11 @@ void loop () {
   static int16_t errorAngleI[2] = {0,0};
   static uint32_t rcTime  = 0;
   static int16_t initialThrottleHold;
-  #ifdef LCD_TELEMETRY_STEP
-    static char telemetryStepSequence []  = LCD_TELEMETRY_STEP;
-    static uint8_t telemetryStepIndex = 0;
-  #endif
 
   #if defined(SPEKTRUM)
-    if (rcFrameComplete) computeRC();
+    if (spekFrameFlags == 0x01) readSpektrum();
   #endif
+  
   #if defined(OPENLRSv2MULTI) 
     Read_OpenLRS_RC();
   #endif 
@@ -643,7 +672,7 @@ void loop () {
     #if defined(FAILSAFE)
       if ( failsafeCnt > (5*FAILSAVE_DELAY) && f.ARMED) {                  // Stabilize, and set Throttle to specified level
         for(i=0; i<3; i++) rcData[i] = MIDRC;                               // after specified guard time after RC signal is lost (in 0.1sec)
-        rcData[THROTTLE] = FAILSAVE_THROTTLE;
+        rcData[THROTTLE] = conf.failsave_throttle;
         if (failsafeCnt > 5*(FAILSAVE_DELAY+FAILSAVE_OFF_DELAY)) {          // Turn OFF motors after specified Time (in 0.1sec)
           f.ARMED = 0;   // This will prevent the copter to automatically rearm if failsafe shuts it down and prevents
           f.OK_TO_ARM = 0; // to restart accidentely by just reconnect to the tx - you will have to switch off first to rearm
@@ -838,17 +867,17 @@ void loop () {
       if (f.ANGLE_MODE || f.HORIZON_MODE) {STABLEPIN_ON;} else {STABLEPIN_OFF;}
     #endif
 
-    #if BARO
+    #if BARO && (!defined(SUPPRESS_BARO_ALTHOLD))
       if (rcOptions[BOXBARO]) {
-        if (!f.BARO_MODE) {
-          f.BARO_MODE = 1;
-          AltHold = EstAlt;
-          initialThrottleHold = rcCommand[THROTTLE];
-          errorAltitudeI = 0;
-          BaroPID=0;
-        }
+          if (!f.BARO_MODE) {
+            f.BARO_MODE = 1;
+            AltHold = EstAlt;
+            initialThrottleHold = rcCommand[THROTTLE];
+            errorAltitudeI = 0;
+            BaroPID=0;
+          }
       } else {
-        f.BARO_MODE = 0;
+          f.BARO_MODE = 0;
       }
     #endif
     #if MAG
@@ -976,12 +1005,15 @@ void loop () {
   currentTime = micros();
   cycleTime = currentTime - previousTime;
   previousTime = currentTime;
-  
+
+  //***********************************
+  //**** Experimental FlightModes *****
+  //***********************************
   #if defined(ACROTRAINER_MODE)
     if(f.ANGLE_MODE){
       if (abs(rcCommand[ROLL]) + abs(rcCommand[PITCH]) >= ACROTRAINER_MODE ) {
         f.ANGLE_MODE=0;
-		f.HORIZON_MODE=0;
+        f.HORIZON_MODE=0;
         f.MAG_MODE=0;
         f.BARO_MODE=0;
         f.GPS_HOME_MODE=0;
@@ -989,6 +1021,17 @@ void loop () {
       }
     }
   #endif
+  #if defined(AP_MODE)
+    if(f.ANGLE_MODE || f.HORIZON_MODE){
+      if (abs(rcCommand[ROLL])>= AP_MODE || abs(rcCommand[PITCH]) >= AP_MODE) {
+        f.BARO_MODE=0;
+        f.GPS_HOME_MODE=0;
+        f.GPS_HOLD_MODE=0;
+      }
+    }
+  #endif
+ //*********************************** 
+
 
   #if MAG
     if (abs(rcCommand[YAW]) <70 && f.MAG_MODE) {
@@ -999,7 +1042,7 @@ void loop () {
     } else magHold = heading;
   #endif
 
-  #if BARO
+  #if BARO && (!defined(SUPPRESS_BARO_ALTHOLD))
     if (f.BARO_MODE) {
       if (abs(rcCommand[THROTTLE]-initialThrottleHold)>ALT_HOLD_THROTTLE_NEUTRAL_ZONE) {
         f.BARO_MODE = 0; // so that a new althold reference is defined
@@ -1028,6 +1071,9 @@ void loop () {
   #endif
 
   //**** PITCH & ROLL & YAW PID ****
+  int16_t prop;
+  prop = max(abs(rcCommand[PITCH]),abs(rcCommand[ROLL])); // range [0;500]
+  
   for(axis=0;axis<3;axis++) {
     if ((f.ANGLE_MODE || f.HORIZON_MODE) && axis<2 ) { // MODE relying on ACC
       // 50 degrees max inclination
@@ -1054,8 +1100,6 @@ void loop () {
       ITermGYRO = (errorGyroI[axis]/125*conf.I8[axis])>>6;                                   // 16 bits is ok here 16000/125 = 128 ; 128*250 = 32000
     }
     if ( f.HORIZON_MODE && axis<2) {
-      int16_t prop;
-      prop = abs(rcCommand[axis]); // range [0;500]
       PTerm = ((int32_t)PTermACC*(500-prop) + (int32_t)PTermGYRO*prop)/500;
       ITerm = ((int32_t)ITermACC*(500-prop) + (int32_t)ITermGYRO*prop)/500;
     } else {

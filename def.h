@@ -11,6 +11,22 @@
   #define FAILSAFE
   #define LCD_CONF
   #define LCD_TEXTSTAR
+=======
+/**************************************************************************************/
+/***************             test configurations                   ********************/
+/**************************************************************************************/
+#if COPTERTEST == 1
+  #define QUADP
+  #define WMP
+#elif COPTERTEST == 2
+  #define FLYING_WING
+  #define WMP
+  #define BMA020
+  #define FAILSAFE
+  #define LCD_CONF
+  #define LCD_TEXTSTAR
+  #define VBAT
+  #define POWERMETER_SOFT
 #elif COPTERTEST == 3
   #define TRI
   #define FREEIMUv035_MS
@@ -18,6 +34,7 @@
   #define VBAT
   #define POWERMETER_HARD
   #define LCD_CONF
+  #define LCD_CONF_AUX
   #define LCD_VT100
   #define LCD_TELEMETRY
   #define LCD_TELEMETRY_STEP "01245"
@@ -27,6 +44,19 @@
   #define SPEKTRUM 2048
   #define LED_RING
   #define GPS_SERIAL 2
+#elif COPTERTEST == 5
+  #define HELI_120_CCPM
+  #define CRIUS_LITE
+  #undef DISABLE_POWER_PIN
+  #define RCAUXPIN8
+  #define OLED_I2C_128x64
+  #define LCD_TELEMETRY
+  #define LOG_VALUES 1
+  #define DEBUG
+  #undef SERVO_RFR_50HZ
+  #define SERVO_RFR_160HZ
+  #define VBAT
+  #define POWERMETER_SOFT
 #elif defined(COPTERTEST)
   #error "*** this test is not yet defined"
 #endif
@@ -107,7 +137,6 @@
   #define PCIR_PORT_BIT              (1<<2)
   #define RX_PC_INTERRUPT            PCINT2_vect
   #define RX_PCINT_PIN_PORT          PIND
-  #define ISR_UART                   ISR(USART_UDRE_vect)
   #define V_BATPIN                   A3    // Analog PIN 3
   #define PSENSORPIN                 A2    // Analog PIN 2
   
@@ -285,8 +314,7 @@
   #define PCIR_PORT_BIT                (1<<0)
   #define RX_PC_INTERRUPT              PCINT0_vect
   #define RX_PCINT_PIN_PORT            PINB
-  
-  #define ISR_UART                    ISR(USART_UDRE_vect)
+
   #if !defined(A32U4ALLPINS) && !defined(TEENSY20)
     #define V_BATPIN                  A3    // Analog PIN 3
   #elif defined(A32U4ALLPINS)
@@ -354,8 +382,6 @@
   #define PCIR_PORT_BIT              (1<<2)
   #define RX_PC_INTERRUPT            PCINT2_vect
   #define RX_PCINT_PIN_PORT          PINK
-   
-  #define ISR_UART                   ISR(USART0_UDRE_vect)
   
   #define SERVO_1_PINMODE            pinMode(34,OUTPUT);pinMode(44,OUTPUT); // TILT_PITCH - WING left
   #define SERVO_1_PIN_HIGH           PORTC |= 1<<3;PORTL |= 1<<5;
@@ -880,6 +906,8 @@
   #define SERVO_3_PINMODE            pinMode(46,OUTPUT);        // CAM TRIG
   #define SERVO_3_PIN_HIGH           PORTL |= 1<<3;
   #define SERVO_3_PIN_LOW            PORTL &= ~(1<<3);
+  #define SERVO_4_PINMODE            pinMode(11,OUTPUT);        // SERVO4 , use hardware PWM
+  #define SERVO_5_PINMODE            pinMode(12,OUTPUT);        // SERVO5 , use hardware PWM
 #endif
 
 #if defined(LADYBIRD)
@@ -887,9 +915,6 @@
   #define ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  = -X; accADC[PITCH]  = -Y; accADC[YAW]  =  Z;}
   #define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] =  Y; gyroADC[PITCH] = -X; gyroADC[YAW] = -Z;}
   #undef INTERNAL_I2C_PULLUPS
-  #define ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  = -X; accADC[PITCH]  = -Y; accADC[YAW]  =  Z;}
-  #define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] =  Y; gyroADC[PITCH] = -X; gyroADC[YAW] = -Z;}
->>>>>>> upstream/upstream_shared
 #endif
 
 #if defined(OPENLRSv2MULTI)
@@ -923,18 +948,21 @@
   
   //#### Other interface pinouts ###
   #define GREEN_LED_pin 13
-#if defined(DESQUARED6DOFV2GO)
-  #define ITG3200
-  #define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] =  Y; gyroADC[PITCH] = -X; gyroADC[YAW] = -Z;}
-  #undef INTERNAL_I2C_PULLUPS
-#endif
-	
-#if defined(DESQUARED6DOFV4)
-  #define MPU6050
-  #define ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  = -X; accADC[PITCH]  = -Y; accADC[YAW]  =  Z;}
-  #define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] =  Y; gyroADC[PITCH] = -X; gyroADC[YAW] = -Z;}
-  #undef INTERNAL_I2C_PULLUPS
-#endif
+  #define RED_LED_pin A3
+
+  #define Red_LED_ON  PORTC |= _BV(3);
+  #define Red_LED_OFF  PORTC &= ~_BV(3);
+  
+  #define Green_LED_ON  PORTB |= _BV(5);
+  #define Green_LED_OFF  PORTB &= ~_BV(5);
+  
+  #define NOP() __asm__ __volatile__("nop") 
+ 
+  #define RF22B_PWRSTATE_READY    01 
+  #define RF22B_PWRSTATE_TX        0x09 
+  #define RF22B_PWRSTATE_RX       05 
+  #define RF22B_Rx_packet_received_interrupt   0x02 
+  #define RF22B_PACKET_SENT_INTERRUPT  04 
   #define RF22B_PWRSTATE_POWERDOWN  00    
   
   unsigned char ItStatus1, ItStatus2;  
@@ -958,6 +986,11 @@
   #undef INTERNAL_I2C_PULLUPS
 #endif
 
+#if defined(OSEPPGYRO)
+  #define MPU3050
+  #define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] =  Y; gyroADC[PITCH] = -X; gyroADC[YAW] = -Z;}
+  #undef INTERNAL_I2C_PULLUPS
+#endif
 
 /**************************************************************************************/
 /***************              Sensor Type definitions              ********************/
@@ -975,7 +1008,7 @@
   #define MAG 0
 #endif
 
-#if defined(ITG3200) || defined(L3G4200D) || defined(MPU6050) || defined(WMP)
+#if defined(ITG3200) || defined(L3G4200D) || defined(MPU6050) || defined(MPU3050) || defined(WMP)
   #define GYRO 1
 #else
   #define GYRO 0
@@ -1052,6 +1085,10 @@
   #define FIXEDWING
 #endif
 
+#if defined(HELI_120_CCPM) || defined(HELI_90_DEG)
+  #define HELICOPTER
+#endif
+
 #if defined (AIRPLANE) || defined(HELICOPTER)|| defined(SINGLECOPTER)|| defined(DUALCOPTER) && defined(PROMINI) 
   #if defined(D12_POWER)
     #define SERVO_4_PINMODE            ;  // D12
@@ -1064,10 +1101,6 @@
   #endif
 #endif
 
-#if defined(HELI_120_CCPM) || defined(HELI_90_DEG)
-  #define HELICOPTER
-#endif
-
 #if defined(POWERMETER_HARD) || defined(POWERMETER_SOFT)
   #define POWERMETER
 #endif
@@ -1078,14 +1111,13 @@
 
 //all new Special RX's must be added here
 //this is to avoid confusion :)
-#if !defined(SERIAL_SUM_PPM) && !defined(SPEKTRUM) && !defined(SBUS) && !defined(RCSERIALERIAL)
+#if !defined(SERIAL_SUM_PPM) && !defined(SPEKTRUM) && !defined(SBUS) && !defined(RCSERIAL)
   #define STANDARD_RX
 #endif
 
 
 // Spektrum Satellite
 #if defined(SPEKTRUM)
-  #define SPEK_MAX_CHANNEL 7
   #define SPEK_FRAME_SIZE 16
   #if (SPEKTRUM == 1024)
     #define SPEK_CHAN_SHIFT  2       // Assumes 10 bit frames, that is 1024 mode.
@@ -1099,8 +1131,13 @@
   #endif
 #endif
 
-
-
+#if defined(SBUS)
+  #define RC_CHANS 18
+#elif defined(SPEKTRUM) || defined(SERIAL_SUM_PPM)
+  #define RC_CHANS 12
+#else
+  #define RC_CHANS 8
+#endif
 
 /**************************************************************************************/
 /***************             motor and servo numbers               ********************/
@@ -1173,7 +1210,7 @@
       #define SEC_SERVO_FROM   3 // use servo from 3 to 4
       #define SEC_SERVO_TO     4
     #else
-      #if !defined(MEGA_HW_GIMBAL) // if HW Gimbal is active we dont need the SW PWM defines
+      #if !defined(MEGA_HW_PWM_SERVOS) // if HW Gimbal is active we dont need the SW PWM defines
         #define SEC_SERVO_FROM   1 // use servo from 1 to 2
         #define SEC_SERVO_TO     2
       #endif
@@ -1369,6 +1406,10 @@
   #endif
 #endif
 
+#if defined(MEGA) && defined(MEGA_HW_PWM_SERVOS)
+  #undef SERVO_1_HIGH                                    // No software PWM's if we use hardware MEGA PWM
+#endif
+
 /**************************************************************************************/
 /***************                       I2C GPS                     ********************/
 /**************************************************************************************/
@@ -1505,6 +1546,23 @@
   #define ALT_HOLD_THROTTLE_NEUTRAL_ZONE 20
 #endif 
 
+  /**************************************************************************************/
+  /***************               override default pin assignments ?  ********************/
+  /**************************************************************************************/
+#ifdef OVERRIDE_V_BATPIN
+  #define V_BATPIN OVERRIDE_V_BATPIN
+#endif
+#ifdef OVERRIDE_LEDPIN_PINMODE
+  #define LEDPIN_PINMODE OVERRIDE_LEDPIN_PINMODE
+  #define LEDPIN_TOGGLE OVERRIDE_LEDPIN_TOGGLE
+  #define LEDPIN_OFFOVERRIDE_LEDPIN_OFF
+  #define LEDPIN_ON OVERRIDE_LEDPIN_ON
+#endif
+#ifdef OVERRIDE_BUZZERPIN_PINMODE
+  #define BUZZERPIN_PINMODE OVERRIDE_BUZZERPIN_PINMODE
+  #define BUZZERPIN_ON OVERRIDE_BUZZERPIN_ON
+  #define BUZZERPIN_OFF OVERRIDE_BUZZERPIN_OFF
+#endif
 /**************************************************************************************/
 /***************               Error Checking Section              ********************/
 /**************************************************************************************/
@@ -1531,4 +1589,5 @@
 
 #if defined(VBAT) && !(defined(BUZZER))
         #error "to use VBAT, you must also configure BUZZER"
+>>>>>>> upstream/upstream_shared
 #endif
